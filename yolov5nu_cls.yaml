@@ -2,7 +2,7 @@ type: yolov8_cls
 name: yolov8s_cls-r20231220
 provider: Ultralytics
 display_name: YOLOv8s-Cls
-model_path: https://github.com/CVHub520/X-AnyLabeling/releases/download/v2.2.0/yolov8s-cls.onnx
+model_path: https://github.com/DlrowM/test/blob/main/yolov5_12.onnx
 classes:
   0: tench
   1: goldfish
