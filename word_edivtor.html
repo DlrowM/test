@@ -307,210 +307,241 @@
         </div>
     </div>
 
-    <script>
-        const txtFileInput = document.getElementById('txt-file-input');
-        const editor = document.getElementById('editor');
-        const fileNameDisplay = document.getElementById('file-name-display');
-        const charCountDisplay = document.getElementById('char-count');
-        const sidebar = document.getElementById('history-sidebar');
-        const modeToggleBtn = document.getElementById('mode-toggle-btn');
-        const modeText = document.getElementById('mode-text');
+<script>
+    const txtFileInput = document.getElementById('txt-file-input');
+    const editor = document.getElementById('editor');
+    const fileNameDisplay = document.getElementById('file-name-display');
+    const charCountDisplay = document.getElementById('char-count');
+    const sidebar = document.getElementById('history-sidebar');
+    const modeToggleBtn = document.getElementById('mode-toggle-btn');
+    const modeText = document.getElementById('mode-text');
 
-        let uploadedContent = ''; 
-        let viewLength = 0; // 核心变量：打字模式下，当前应该显示多少个字
-        let isComposing = false; 
+    let uploadedContent = ''; 
+    let viewLength = 0; // 核心变量：打字模式下，当前应该显示多少个字
+    let isComposing = false; 
+    
+    let currentMode = 'TYPING'; // 模式状态: 'TYPING' (打字同步模式) 或 'WORD' (自由输入模式)
+    let typingModeContent = ''; // 存储从 TXT 同步出来的最终内容
+    let wordModeContent = '';   // 存储在 WORD 模式下自由输入的内容
+
+    // 默认设置按钮文本和禁用状态
+    modeText.textContent = 'working mode~'; // 初始文本，提示将要切换到的模式
+    modeToggleBtn.disabled = true;
+
+    function toggleHistorySidebar() {
+        sidebar.classList.toggle('active');
+    }
+
+    // === 模式切换函数 ===
+    function toggleMode() {
+        if (!uploadedContent) {
+            alert('请先上传 TXT 文件才能切换模式。');
+            return;
+        }
+
+        if (currentMode === 'TYPING') {
+            // 1. 从 TYPING (working mode) 切换到 WORD (happy mode)
+            
+            typingModeContent = editor.value; // 保存当前的同步内容
+            
+            currentMode = 'WORD';
+            modeToggleBtn.classList.add('mode-active');
+            
+            // 切换后的按钮文本：提示用户将切回打字模式
+            modeText.textContent = 'happy mode~'; 
+            
+            // 加载 Word 模式的内容
+            editor.value = wordModeContent;
+            editor.placeholder = "working mode~";
+            
+        } else {
+            // 2. 从 WORD (happy mode) 切换回 TYPING (working mode)
+            
+            wordModeContent = editor.value; // 保存自由输入的内容
+            
+            currentMode = 'TYPING';
+            modeToggleBtn.classList.remove('mode-active');
+            
+            // 切换后的按钮文本：提示用户将切到自由模式
+            modeText.textContent = 'working mode~'; 
+
+            // 恢复打字模式的内容
+            editor.value = typingModeContent;
+            viewLength = typingModeContent.length; 
+            editor.placeholder = "working mode~";
+        }
         
-        let currentMode = 'TYPING'; // 模式状态: 'TYPING' (打字同步模式) 或 'WORD' (自由输入模式)
-        let typingModeContent = ''; // 存储从 TXT 同步出来的最终内容
-        let wordModeContent = '';   // 存储在 WORD 模式下自由输入的内容
+        // 确保光标在末尾并更新 UI
+        renderContent(true); 
+        updateUI();
+        editor.focus();
+    }
 
-        // 默认禁用切换按钮，直到 TXT 内容加载完成
-        modeToggleBtn.disabled = true;
+    // 1. 文件读取 (仅处理 TXT)
+    txtFileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
 
-        function toggleHistorySidebar() {
-            sidebar.classList.toggle('active');
+        if (file.name.split('.').pop().toLowerCase() !== 'txt') {
+            alert('请上传文本文件（.txt）！');
+            return;
         }
 
-        // === 模式切换函数 ===
-        function toggleMode() {
-            if (currentMode === 'TYPING') {
-                // 1. 从 打字模式 切换到 Word 模式
-                
-                // 1a. 保存当前的同步内容到打字模式变量
-                typingModeContent = editor.value; 
-                
-                // 1b. 切换模式和状态
-                currentMode = 'WORD';
-                modeToggleBtn.classList.add('mode-active');
-                modeText.textContent = 'happy mode~';
-                
-                // 1c. 加载 Word 模式的内容 (如果之前有自由输入的内容，则加载)
-                editor.value = wordModeContent;
-                editor.placeholder = "working~ working~";
-                
-            } else {
-                // 2. 从 Word 模式 切换回 打字模式
-                
-                // 2a. 保存当前的自由输入内容到 Word 模式变量
-                wordModeContent = editor.value;
-                
-                // 2b. 切换模式和状态
-                currentMode = 'TYPING';
-                modeToggleBtn.classList.remove('mode-active');
-                modeText.textContent = ' working mode~ ';
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            uploadedContent = e.target.result;
+            // 重置状态
+            currentMode = 'TYPING'; // 确保在加载文件后回到打字模式
+            viewLength = 0;
+            editor.value = '';
+            editor.disabled = false;
+            editor.placeholder = "文档已加载。请开始输入以同步文件内容...";
+            typingModeContent = ''; 
+            wordModeContent = ''; // 每次加载新文件，清空自由模式的历史输入
 
-                // 2c. 恢复打字模式的内容和计数
-                editor.value = typingModeContent;
-                viewLength = typingModeContent.length; // 恢复计数器
-                editor.placeholder = " happy mode~ ";
-            }
-            
-            // 确保光标在末尾
-            renderContent(true); 
+            fileNameDisplay.textContent = file.name;
             updateUI();
+            editor.focus();
+            
+            // 启用模式切换按钮
+            modeToggleBtn.disabled = false;
+        };
+        reader.readAsText(file, 'UTF-8');
+    });
+
+    // 2. 核心：监听 Keydown 处理删除 (只允许 Backspace) 和 Tab 切换模式
+    editor.addEventListener('keydown', (e) => {
+        if (!uploadedContent) return;
+
+        // *** Tab 键监听逻辑：直接触发模式切换 ***
+        if (e.key === 'Tab') {
+            e.preventDefault(); // 阻止浏览器默认行为
+            toggleMode();       // 触发模式切换
+            return;
         }
+        // *** Tab 键逻辑结束 ***
 
-        // 1. 文件读取 (仅处理 TXT)
-        txtFileInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            if (file.name.split('.').pop().toLowerCase() !== 'txt') {
-                alert('请上传文本文件（.txt）！');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                uploadedContent = e.target.result;
-                // 重置状态
-                viewLength = 0;
-                editor.value = '';
-                editor.disabled = false;
-                editor.placeholder = "文档已加载。Show time...";
-                typingModeContent = ''; // 清空同步内容
-
-                fileNameDisplay.textContent = file.name;
-                updateUI();
-                editor.focus();
-                
-                // 启用模式切换按钮
-                modeToggleBtn.disabled = false;
-            };
-            reader.readAsText(file, 'UTF-8');
-        });
-
-        // 2. 核心：监听 Keydown 处理删除 (只允许 Backspace)
-        editor.addEventListener('keydown', (e) => {
-            if (!uploadedContent) return;
-
-            if (currentMode === 'WORD') {
-                // Word 模式下，允许所有键盘操作 (不干预)
-                return;
-            }
-            
-            // 以下是 TYPING 模式逻辑
-            if (e.key === 'Backspace') {
-                e.preventDefault(); 
-                if (viewLength > 0) {
-                    viewLength--; 
-                    renderContent();
-                }
-            }
-            else if (e.key === 'Delete') {
-                e.preventDefault(); 
-            }
-        });
-
-        // 3. 核心：中文输入法流程控制 (仅 TYPING 模式生效)
-        editor.addEventListener('compositionstart', () => {
-            if (currentMode === 'TYPING') {
-                isComposing = true;
-            }
-        });
-
-        editor.addEventListener('compositionend', (e) => {
-            if (currentMode === 'WORD') return;
-            
-            isComposing = false;
-            if (!uploadedContent) return;
-
-            const addedLength = e.data ? e.data.length : 0;
-            viewLength += addedLength;
-            
-            // 立即渲染，把刚才的汉字替换成文件内容
-            renderContent();
-        });
-
-        // 4. 核心：普通输入（英文、数字、符号）及粘贴 (仅 TYPING 模式生效)
-        editor.addEventListener('input', (e) => {
-            if (currentMode === 'WORD') {
-                // Word 模式下，同步内容到 Word 存储变量
-                wordModeContent = editor.value;
-                updateUI();
-                return;
-            }
-
-            if (!uploadedContent || isComposing) return;
-
-            // TYPING 模式逻辑
-            const inputType = e.inputType;
-
-            if (inputType && (inputType.startsWith('insert') || inputType === 'historyUndo')) {
-                const addedLength = e.data ? e.data.length : 1; 
-                
-                viewLength += addedLength;
+        if (currentMode === 'WORD') {
+            // Word/happy mode 下，允许所有键盘操作 (不干预 Backspace/Delete)
+            return;
+        }
+        
+        // 以下是 TYPING/working mode 逻辑 (打字同步)
+        if (e.key === 'Backspace') {
+            e.preventDefault(); 
+            if (viewLength > 0) {
+                viewLength--; 
                 renderContent();
             }
-        });
-
-        // 5. 渲染函数：根据 viewLength 强制刷新显示内容 (TYPING 模式)
-        function renderContent(forceCursorUpdate = false) {
-            
-            if (currentMode === 'TYPING') {
-                if (!uploadedContent) return;
-
-                // 边界检查
-                if (viewLength < 0) viewLength = 0;
-                if (viewLength > uploadedContent.length) viewLength = uploadedContent.length;
-
-                // 截取对应长度的文件内容
-                const txtToShow = uploadedContent.substring(0, viewLength);
-
-                // 赋值给编辑器
-                editor.value = txtToShow;
-                
-                // 保持光标在最后
-                editor.scrollTop = editor.scrollHeight;
-                editor.selectionStart = editor.selectionEnd = editor.value.length;
-            } else if (forceCursorUpdate) {
-                // Word 模式下，仅需要保证光标在末尾
-                editor.scrollTop = editor.scrollHeight;
-                editor.selectionStart = editor.selectionEnd = editor.value.length;
-            }
-
-            updateUI();
         }
-
-        function updateUI() {
-            if (currentMode === 'TYPING') {
-                charCountDisplay.textContent = `字符数: ${viewLength} / ${uploadedContent.length}`;
-                if (viewLength >= uploadedContent.length && uploadedContent.length > 0) {
-                    fileNameDisplay.textContent = `${fileNameDisplay.textContent.split(' ')[0]} (已完成)`;
-                } else if (uploadedContent.length > 0) {
-                    fileNameDisplay.textContent = `${uploadedContent.length > 0 ? uploadedContent.split('\n')[0].substring(0, 10) + '...' : '未命名文档'} (打字)`;
-                }
-            } else {
-                // Word 模式下显示当前输入的字数
-                charCountDisplay.textContent = `字符数: ${editor.value.length}`;
-                fileNameDisplay.textContent = `${uploadedContent.length > 0 ? uploadedContent.split('\n')[0].substring(0, 10) + '...' : '未命名文档'} (Word )`;
-            }
+        else if (e.key === 'Delete') {
+            e.preventDefault(); 
         }
+    });
+
+    // 3. 核心：中文输入法流程控制 (仅 TYPING 模式生效)
+    editor.addEventListener('compositionstart', () => {
+        if (currentMode === 'TYPING') {
+            isComposing = true;
+        }
+    });
+
+    editor.addEventListener('compositionend', (e) => {
+        if (currentMode === 'WORD') return;
         
-        // 阻止右键，增加沉浸感
-        editor.addEventListener('contextmenu', (e) => e.preventDefault());
+        isComposing = false;
+        if (!uploadedContent) return;
 
-    </script>
+        const addedLength = e.data ? e.data.length : 0;
+        viewLength += addedLength;
+        
+        renderContent();
+    });
+
+    // 4. 核心：普通输入（英文、数字、符号）及粘贴 (不同模式逻辑不同)
+    editor.addEventListener('input', (e) => {
+        if (currentMode === 'WORD') {
+            // Word/happy mode 下，同步内容到 Word 存储变量
+            wordModeContent = editor.value;
+            updateUI();
+            return;
+        }
+
+        // TYPING/working mode 逻辑
+        if (!uploadedContent || isComposing) return;
+
+        const inputType = e.inputType;
+
+        if (inputType && (inputType.startsWith('insert') || inputType === 'historyUndo')) {
+            const addedLength = e.data ? e.data.length : 1; 
+            
+            viewLength += addedLength;
+            renderContent();
+        }
+    });
+
+    // 5. 渲染函数：根据模式强制刷新显示内容和光标位置
+    function renderContent(forceCursorUpdate = false) {
+        
+        if (currentMode === 'TYPING') {
+            if (!uploadedContent) return;
+
+            // 边界检查
+            if (viewLength < 0) viewLength = 0;
+            if (viewLength > uploadedContent.length) viewLength = uploadedContent.length;
+
+            const txtToShow = uploadedContent.substring(0, viewLength);
+            editor.value = txtToShow;
+            
+            // 确保光标在最后
+            editor.scrollTop = editor.scrollHeight;
+            editor.selectionStart = editor.selectionEnd = editor.value.length;
+        } else if (forceCursorUpdate) {
+            // Word/happy mode 下，仅需要保证光标在末尾
+            editor.scrollTop = editor.scrollHeight;
+            editor.selectionStart = editor.selectionEnd = editor.value.length;
+        }
+
+        updateUI();
+    }
+
+    function updateUI() {
+        if (currentMode === 'TYPING') {
+            charCountDisplay.textContent = `字符数: ${viewLength} / ${uploadedContent.length}`;
+            
+            // 更新标题栏信息
+            let baseName = uploadedContent.length > 0 ? uploadedContent.split('\n')[0].substring(0, 10) + '...' : '未命名文档';
+            
+            // 使用您指定的模式名称：working mode~
+            let modeDisplay = ' (working mode~)';
+            if (viewLength >= uploadedContent.length && uploadedContent.length > 0) {
+                 modeDisplay = ' (working mode~ - 完成)';
+            }
+            fileNameDisplay.textContent = baseName + modeDisplay;
+
+            // 更新模式按钮文本（提示将要切到哪个模式）
+            modeText.textContent = 'happy mode~';
+
+        } else {
+            // Word/happy mode 下显示当前输入的字数
+            charCountDisplay.textContent = `字符数: ${editor.value.length}`;
+            let baseName = uploadedContent.length > 0 ? uploadedContent.split('\n')[0].substring(0, 10) + '...' : '未命名文档';
+            
+            // 使用您指定的模式名称：happy mode~
+            fileNameDisplay.textContent = baseName + ' (happy mode~)';
+
+            // 更新模式按钮文本（提示将要切到哪个模式）
+            modeText.textContent = 'working mode~';
+        }
+    }
+    
+    // 阻止右键，增加沉浸感
+    editor.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // 初始设置按钮文本
+    updateUI(); 
+
+</script>
 
 </body>
 </html>
